@@ -416,6 +416,10 @@ int main(int argc, char *argv[])
 	/* process */
 	fun = modify ? modify_file : print_file;
 	if (optind == argc) {
+		if (recursive_flag == unset) {
+			fprintf(stderr, "error: no files.\n");
+			exit(1);
+		}
 		explore(NULL, fun, 0);
 	} else {
 		for (i = optind; i < argc; i++) {
