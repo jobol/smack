@@ -115,6 +115,17 @@ static struct option *option_by_char(int car)
 	return result;
 }
 
+/* get a string describing the option for the given char */
+static const char *describe_option(int car)
+{
+	static char buffer[50];
+	struct option *opt = option_by_char(car);
+	snprintf(buffer, sizeof buffer, "--%s (or -%c)",
+			opt->name, opt->val);
+	return buffer;
+}
+
+
 /* modify attributes of a file */
 static void modify_prop(const char *path, struct labelset *ls, const char *attr)
 {
@@ -312,15 +323,15 @@ static void set_state(enum state *to, enum state value, int car, int fatal)
 	if (*to == unset)
 		*to = value;
 	else if (*to == value) {
-		fprintf(stderr, "%s, option --%s or -%c already set.\n",
+		fprintf(stderr, "%s, option %s already set.\n",
 			fatal ? "error" : "warning",
-			option_by_char(car)->name, option_by_char(car)->val);
+			describe_option(car));
 		if (fatal)
 			exit(1);
 	} else {
-		fprintf(stderr, "error, option --%s or -%c opposite to an "
+		fprintf(stderr, "error, option %s opposite to an "
 			"option already set.\n",
-			option_by_char(car)->name, option_by_char(car)->val);
+			describe_option(car));
 		exit(1);
 	}
 }
@@ -329,12 +340,12 @@ static void set_state(enum state *to, enum state value, int car, int fatal)
 static void set_label(struct labelset *label, const char *value, int car)
 {
 	if (strnlen(value, SMACK_LABEL_LEN + 1) == SMACK_LABEL_LEN + 1) {
-		fprintf(stderr, "%s: \"%s\" exceeds %d characters.\n",
-			option_by_char(car)->name, value, SMACK_LABEL_LEN);
+		fprintf(stderr, "error option %s: \"%s\" exceeds %d characters.\n",
+			describe_option(car), value, SMACK_LABEL_LEN);
 		exit(1);
 	} else if (smack_label_length(value) < 0) {
-		fprintf(stderr, "%s: invalid Smack label '%s'.\n",
-			option_by_char(car)->name, value);
+		fprintf(stderr, "error option %s: invalid Smack label '%s'.\n",
+			describe_option(car), value);
 		exit(1);
 	}
 
