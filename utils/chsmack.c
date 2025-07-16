@@ -36,6 +36,20 @@
 
 #include "config.h"
 
+#define OC_VERSION        'v'
+#define OC_HELP           'h'
+#define OC_SET_ACCESS     'a'
+#define OC_SET_EXEC       'e'
+#define OC_SET_MMAP       'm'
+#define OC_SET_TRANSMUTE  't'
+#define OC_DROP_ACCESS    'A'
+#define OC_DROP_EXEC      'E'
+#define OC_DROP_MMAP      'M'
+#define OC_DROP_TRANSMUTE 'T'
+#define OC_DROP_OTHERS    'D'
+#define OC_DEREFERENCE    'L'
+#define OC_RECURSIVE      'r'
+
 static const char usage[] =
 	"Usage: %s [options] <path>\n"
 	"Options:\n"  
@@ -56,19 +70,19 @@ static const char usage[] =
 
 static const char shortoptions[] = "vha:e:m:tLDAEMTr";
 static struct option options[] = {
-	{"version", no_argument, 0, 'v'},
-	{"help", no_argument, 0, 'h'},
-	{"access", required_argument, 0, 'a'},
-	{"exec", required_argument, 0, 'e'},
-	{"mmap", required_argument, 0, 'm'},
-	{"transmute", no_argument, 0, 't'},
-	{"dereference", no_argument, 0, 'L'},
-	{"drop", no_argument, 0, 'D'},
-	{"drop-access", no_argument, 0, 'A'},
-	{"drop-exec", no_argument, 0, 'E'},
-	{"drop-mmap", no_argument, 0, 'M'},
-	{"drop-transmute", no_argument, 0, 'T'},
-	{"recursive", no_argument, 0, 'r'},
+	{"version", no_argument, 0, OC_VERSION},
+	{"help", no_argument, 0, OC_HELP},
+	{"access", required_argument, 0, OC_SET_ACCESS},
+	{"exec", required_argument, 0, OC_SET_EXEC},
+	{"mmap", required_argument, 0, OC_SET_MMAP},
+	{"transmute", no_argument, 0, OC_SET_TRANSMUTE},
+	{"dereference", no_argument, 0, OC_DEREFERENCE},
+	{"drop", no_argument, 0, OC_DROP_OTHERS},
+	{"drop-access", no_argument, 0, OC_DROP_ACCESS},
+	{"drop-exec", no_argument, 0, OC_DROP_EXEC},
+	{"drop-mmap", no_argument, 0, OC_DROP_MMAP},
+	{"drop-transmute", no_argument, 0, OC_DROP_TRANSMUTE},
+	{"recursive", no_argument, 0, OC_RECURSIVE},
 	{NULL, 0, 0, 0}
 };
 
@@ -345,52 +359,52 @@ int main(int argc, char *argv[])
 	while ((c = getopt_long(argc, argv, shortoptions, options, NULL)) != -1) {
 
 		switch (c) {
-		case 'a':
+		case OC_SET_ACCESS:
 			set_label(&access_set, optarg, c);
 			modify = 1;
 			break;
-		case 'e':
+		case OC_SET_EXEC:
 			set_label(&exec_set, optarg, c);
 			modify = 1;
 			break;
-		case 'm':
+		case OC_SET_MMAP:
 			set_label(&mmap_set, optarg, c);
 			modify = 1;
 			break;
-		case 'A':
+		case OC_DROP_ACCESS:
 			set_state(&access_set.isset, negative, c, 0);
 			modify = 1;
 			break;
-		case 'E':
+		case OC_DROP_EXEC:
 			set_state(&exec_set.isset, negative, c, 0);
 			modify = 1;
 			break;
-		case 'M':
+		case OC_DROP_MMAP:
 			set_state(&mmap_set.isset, negative, c, 0);
 			modify = 1;
 			break;
-		case 'T':
+		case OC_DROP_TRANSMUTE:
 			set_state(&transmute_flag, negative, c, 0);
 			modify = 1;
 			break;
-		case 't':
+		case OC_SET_TRANSMUTE:
 			set_state(&transmute_flag, positive, c, 0);
 			modify = 1;
 			break;
-		case 'D':
+		case OC_DROP_OTHERS:
 			set_state(&delete_flag, negative, c, 0);
 			break;
-		case 'L':
+		case OC_DEREFERENCE:
 			set_state(&follow_flag, positive, c, 0);
 			break;
-		case 'r':
+		case OC_RECURSIVE:
 			set_state(&recursive_flag, positive, c, 0);
 			break;
-		case 'v':
+		case OC_VERSION:
 			printf("%s (libsmack) version " PACKAGE_VERSION "\n",
 			       basename(argv[0]));
 			exit(0);
-		case 'h':
+		case OC_HELP:
 			printf(usage, basename(argv[0]));
 			exit(0);
 		default:
