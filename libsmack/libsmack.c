@@ -245,7 +245,7 @@ static int accesses_add(struct smack_accesses *handle, const char *subject,
 	struct smack_label *subject_label;
 	struct smack_label *object_label;
 
-	rule = calloc(sizeof(struct smack_rule), 1);
+	rule = calloc(1, sizeof(struct smack_rule));
 	if (rule == NULL)
 		return -1;
 
@@ -419,7 +419,7 @@ int smack_cipso_new(struct smack_cipso **cipso)
 {
 	struct smack_cipso *result;
 
-	result = calloc(sizeof(struct smack_cipso), 1);
+	result = calloc(1, sizeof(struct smack_cipso));
 	if (result == NULL)
 		return -1;
 
@@ -533,7 +533,7 @@ int smack_cipso_add_from_file(struct smack_cipso *cipso, int fd)
 	}
 
 	while (getline(&buf, &buf_size, file) >= 0) {
-		mapping = calloc(sizeof(struct cipso_mapping), 1);
+		mapping = calloc(1, sizeof(struct cipso_mapping));
 		if (mapping == NULL)
 			goto err_out;
 
@@ -623,7 +623,7 @@ static ssize_t smack_new_label_from_proc(const char *proc_path, char **label)
 
 	buf[ret] = '\0';
 
-	result = calloc(ret + 1, 1);
+	result = calloc(1, ret + 1);
 	if (result == NULL)
 		return -1;
 
@@ -680,7 +680,7 @@ ssize_t smack_new_label_from_socket(int fd, char **label)
 
 	buf[length] = '\0';
 
-	result = calloc(length + 1, 1);
+	result = calloc(1, length + 1);
 	if (result == NULL)
 		return -1;
 
@@ -708,7 +708,7 @@ ssize_t smack_new_label_from_path(const char *path, const char *xattr,
 		return -1;
 	buf[ret] = '\0';
 
-	result = calloc(ret + 1, 1);
+	result = calloc(1, ret + 1);
 	if (result == NULL)
 		return -1;
 
@@ -734,7 +734,7 @@ ssize_t smack_new_label_from_file(int fd, const char *xattr,
 		return -1;
 	buf[ret] = '\0';
 
-	result = calloc(ret + 1, 1);
+	result = calloc(1, ret + 1);
 	if (result == NULL)
 		return -1;
 
