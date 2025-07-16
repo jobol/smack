@@ -41,9 +41,9 @@ static const char usage[] =
 	"Options:\n"  
 	" -v --version         output version information and exit\n"
 	" -h --help            output usage information and exit\n"
-	" -a --access          set "XATTR_NAME_SMACK"\n"
-	" -e --exec            set "XATTR_NAME_SMACKEXEC"\n"
-	" -m --mmap            set "XATTR_NAME_SMACKMMAP"\n"
+	" -a --access VALUE    set "XATTR_NAME_SMACK" to VALUE\n"
+	" -e --exec VALUE      set "XATTR_NAME_SMACKEXEC" to VALUE\n"
+	" -m --mmap VALUE      set "XATTR_NAME_SMACKMMAP" to VALUE\n"
 	" -t --transmute       set "XATTR_NAME_SMACKTRANSMUTE"\n"
 	" -L --dereference     tell to follow the symbolic links\n"
 	" -D --drop            remove unset attributes\n"
@@ -52,17 +52,15 @@ static const char usage[] =
 	" -M --drop-mmap       remove "XATTR_NAME_SMACKMMAP"\n"
 	" -T --drop-transmute  remove "XATTR_NAME_SMACKTRANSMUTE"\n"
 	" -r --recursive       list or modify also files in subdirectories\n"
-	"Obsolete option:\n"
-	" -d --remove          tell to remove the attribute\n"
 ;
 
-static const char shortoptions[] = "vha::e::m::tdLDAEMTr";
+static const char shortoptions[] = "vha:e:m:tLDAEMTr";
 static struct option options[] = {
 	{"version", no_argument, 0, 'v'},
 	{"help", no_argument, 0, 'h'},
-	{"access", optional_argument, 0, 'a'},
-	{"exec", optional_argument, 0, 'e'},
-	{"mmap", optional_argument, 0, 'm'},
+	{"access", required_argument, 0, 'a'},
+	{"exec", required_argument, 0, 'e'},
+	{"mmap", required_argument, 0, 'm'},
 	{"transmute", no_argument, 0, 't'},
 	{"dereference", no_argument, 0, 'L'},
 	{"drop", no_argument, 0, 'D'},
@@ -71,7 +69,6 @@ static struct option options[] = {
 	{"drop-mmap", no_argument, 0, 'M'},
 	{"drop-transmute", no_argument, 0, 'T'},
 	{"recursive", no_argument, 0, 'r'},
-	{"remove", no_argument, 0, 'd'},
 	{NULL, 0, 0, 0}
 };
 
@@ -314,6 +311,23 @@ static void set_state(enum state *to, enum state value, int car, int fatal)
 	}
 }
 
+/* set the label to value */
+static void set_label(struct labelset *label, const char *value, int car)
+{
+	if (strnlen(value, SMACK_LABEL_LEN + 1) == SMACK_LABEL_LEN + 1) {
+		fprintf(stderr, "%s: \"%s\" exceeds %d characters.\n",
+			option_by_char(car)->name, value, SMACK_LABEL_LEN);
+		exit(1);
+	} else if (smack_label_length(value) < 0) {
+		fprintf(stderr, "%s: invalid Smack label '%s'.\n",
+			option_by_char(car)->name, value);
+		exit(1);
+	}
+
+	set_state(&label->isset, positive, car, 1);
+	label->value = value;
+}
+
 /* main */
 int main(int argc, char *argv[])
 {
@@ -327,18 +341,21 @@ int main(int argc, char *argv[])
 	int c;
 	int i;
 
-	/* scan options without argument and not depending of -d */
+	/* scan options */
 	while ((c = getopt_long(argc, argv, shortoptions, options, NULL)) != -1) {
 
 		switch (c) {
 		case 'a':
+			set_label(&access_set, optarg, c);
+			modify = 1;
+			break;
 		case 'e':
+			set_label(&exec_set, optarg, c);
+			modify = 1;
+			break;
 		case 'm':
-			/* greedy on optional arguments */
-			if (optarg == NULL && argv[optind] != NULL
-			    && argv[optind][0] != '-') {
-				optind++;
-			}
+			set_label(&mmap_set, optarg, c);
+			modify = 1;
 			break;
 		case 'A':
 			set_state(&access_set.isset, negative, c, 0);
@@ -357,10 +374,8 @@ int main(int argc, char *argv[])
 			modify = 1;
 			break;
 		case 't':
-			break;
-		case 'd':
-			set_state(&delete_flag, positive, c, 0);
-			fprintf(stderr, "remove: option -d is obsolete!\n");
+			set_state(&transmute_flag, positive, c, 0);
+			modify = 1;
 			break;
 		case 'D':
 			set_state(&delete_flag, negative, c, 0);
@@ -384,60 +399,6 @@ int main(int argc, char *argv[])
 		}
 	}
 
-	/* scan options with optional argument and -t */
-	svalue = delete_flag == positive ? negative : positive;
-	optind = 1;
-	while ((c = getopt_long(argc, argv, shortoptions, options, NULL)) != -1) {
-
-		switch (c) {
-		case 'a':
-			labelset = &access_set;
-			break;
-		case 'e':
-			labelset = &exec_set;
-			break;
-		case 'm':
-			labelset = &mmap_set;
-			break;
-		case 't':
-			set_state(&transmute_flag, svalue, c, 0);
-			modify = 1;
-		default:
-			continue;
-		}
-
-		/* greedy on optional arguments */
-		if (optarg == NULL && argv[optind] != NULL
-		    && argv[optind][0] != '-') {
-			optarg = argv[optind++];
-		}
-		if (optarg == NULL) {
-			if (delete_flag != positive) {
-				fprintf(stderr, "%s: require a label on set.\n",
-					option_by_char(c)->name);
-				exit(1);
-			}
-		} else if (delete_flag == positive) {
-			fprintf(stderr, "%s: require no label on delete.\n",
-				option_by_char(c)->name);
-			exit(1);
-		} else if (strnlen(optarg, SMACK_LABEL_LEN + 1) ==
-			   SMACK_LABEL_LEN + 1) {
-			fprintf(stderr, "%s: \"%s\" exceeds %d characters.\n",
-				option_by_char(c)->name, optarg,
-				SMACK_LABEL_LEN);
-			exit(1);
-		} else if (smack_label_length(optarg) < 0) {
-			fprintf(stderr, "%s: invalid Smack label '%s'.\n",
-				option_by_char(c)->name, optarg);
-			exit(1);
-		}
-
-		set_state(&labelset->isset, svalue, c, 1);
-		labelset->value = optarg;
-		modify = 1;
-	}
-
 	/* update states */
 	if (delete_flag == negative) {
 		/* remove unset attributes */
@@ -449,11 +410,6 @@ int main(int argc, char *argv[])
 			mmap_set.isset = negative;
 		if (transmute_flag == unset)
 			transmute_flag = negative;
-	} else if (delete_flag == positive && !modify) {
-		access_set.isset = negative;
-		exec_set.isset = negative;
-		mmap_set.isset = negative;
-		transmute_flag = negative;
 		modify = 1;
 	}
 

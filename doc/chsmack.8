@@ -28,8 +28,6 @@ chsmack \- Change or list the Smack properties of filesystem objects
 
 .B chsmack [-L] [-r] props... [--] files...
 
-chsmack -d [-L] [-r] [props]... [--] files...
-
 .SH DESCRIPTION
 
 \fBchsmack\fR can be used to query or change the Smack context of a file.
@@ -37,10 +35,6 @@ chsmack -d [-L] [-r] [props]... [--] files...
 First form is used to query the Smack properties of the files.
 
 Second form is used to set and reset some Smack properties to the files.
-
-Third form is used to remove all or some of the Smack properties of the
-listed files.
-\fBThis third form is now obsolete, use second form instead.\fR
 
 Depending on the state and type of the file the different labels,
 which are stored as extended attributes, have a different effect.
@@ -162,20 +156,6 @@ be removed.
 
 Use this option to list or modify files in subdirectories.
 It follows symbolic links only if in the command line.
-
-.SH OBSOLETE OPTIONS
-
-.TP
-.B -d, --remove
-
-\fBThis option is obsolete, use -D, -A, -M -E, -T instead.\fR
-
-Use this option to remove the smack properties of the files.
-You specify the properties to remove using options \fB-a\fR, \fB-e\fR,
-\fB-m\fR or \fB-t\fR (or their long version) without putting their label
-value.
-If no property is specified, it means that all the properties will
-be removed.
 
 .SH RETURN VALUE
 
