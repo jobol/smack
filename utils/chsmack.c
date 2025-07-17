@@ -49,6 +49,15 @@
 #define OC_DROP_OTHERS    'D'
 #define OC_DEREFERENCE    'L'
 #define OC_RECURSIVE      'r'
+#define OC_NAME_ONLY      'n'
+#define OC_IF_ACCESS      '\001'
+#define OC_IF_EXEC        '\002'
+#define OC_IF_MMAP        '\003'
+#define OC_IF_TRANSMUTE   '\004'
+#define OC_IF_NO_ACCESS   '\005'
+#define OC_IF_NO_EXEC     '\006'
+#define OC_IF_NO_MMAP     '\007'
+#define OC_IF_NO_TRANSMUTE '\010'
 
 static const char usage[] =
 	"Usage: %s [options] <path>\n"
@@ -66,9 +75,18 @@ static const char usage[] =
 	" -M --drop-mmap       remove "XATTR_NAME_SMACKMMAP"\n"
 	" -T --drop-transmute  remove "XATTR_NAME_SMACKTRANSMUTE"\n"
 	" -r --recursive       list or modify also files in subdirectories\n"
+	" -n --name-only       don't print attributes\n"
+	"    --if-access VALUE apply if access is value\n"
+	"    --if-exec VALUE   apply if exec is value\n"
+	"    --if-mmap VALUE   apply if mmap is value\n"
+	"    --if-transmute    apply if transmuting\n"
+	"    --if-no-access    apply if access is not set\n"
+	"    --if-no-exec      apply if exec is not set\n"
+	"    --if-no-mmap      apply if mmap is not set\n"
+	"    --if-no-transmute apply if not transmuting\n"
 ;
 
-static const char shortoptions[] = "vha:e:m:tLDAEMTr";
+static const char shortoptions[] = "vha:e:m:tLDAEMTrn";
 static struct option options[] = {
 	{"version", no_argument, 0, OC_VERSION},
 	{"help", no_argument, 0, OC_HELP},
@@ -83,6 +101,15 @@ static struct option options[] = {
 	{"drop-mmap", no_argument, 0, OC_DROP_MMAP},
 	{"drop-transmute", no_argument, 0, OC_DROP_TRANSMUTE},
 	{"recursive", no_argument, 0, OC_RECURSIVE},
+	{"name-only", no_argument, 0, OC_NAME_ONLY},
+	{"if-access", required_argument, 0, OC_IF_ACCESS},
+	{"if-exec", required_argument, 0, OC_IF_EXEC},
+	{"if-mmap", required_argument, 0, OC_IF_MMAP},
+	{"if-transmute", no_argument, 0, OC_IF_TRANSMUTE},
+	{"if-no-access", no_argument, 0, OC_IF_NO_ACCESS},
+	{"if-no-exec", no_argument, 0, OC_IF_NO_EXEC},
+	{"if-no-mmap", no_argument, 0, OC_IF_NO_MMAP},
+	{"if-no-transmute", no_argument, 0, OC_IF_NO_TRANSMUTE},
 	{NULL, 0, 0, 0}
 };
 
@@ -106,6 +133,12 @@ static enum state transmute_flag = unset; /* for option "transmute" */
 static enum state follow_flag = unset; /* for option "dereference" */
 static enum state recursive_flag = unset; /* for option "recursive" */
 
+static struct labelset if_access = { unset, NULL }; /* for option "if-access" */
+static struct labelset if_exec = { unset, NULL }; /* for option "if-exec" */
+static struct labelset if_mmap = { unset, NULL }; /* for option "if-mmap" */
+static enum state if_transmute = unset; /* for option "if-transmute" */
+static enum state name_only_flag = unset; /* for option "name-only" */
+
 /* get the option for the given char */
 static struct option *option_by_char(int car)
 {
@@ -120,11 +153,47 @@ static const char *describe_option(int car)
 {
 	static char buffer[50];
 	struct option *opt = option_by_char(car);
-	snprintf(buffer, sizeof buffer, "--%s (or -%c)",
+	snprintf(buffer, sizeof buffer,
+			opt->val > ' ' ? "--%s (or -%c)" : "--%s",
 			opt->name, opt->val);
 	return buffer;
 }
 
+/* check if prop matches the condition */
+static int test_prop(const char *path, enum state flag, const char *value,
+		     const char *attr)
+{
+	int rc;
+	char *label;
+
+	if (flag == unset)
+		rc = 1;
+	else {
+		rc = smack_new_label_from_path(path, attr, follow_flag,
+						&label);
+		if (rc < 0)
+			rc = flag == negative;
+		else {
+			rc = value != NULL
+			  && !strcmp(label, value) == (flag == positive);
+			free(label);
+		}
+	}
+	return rc;
+}
+
+/* check if path matches the select conditions */
+static int test_if_selected(const char *path)
+{
+	return test_prop(path,
+			 if_access.isset, if_access.value, XATTR_NAME_SMACK)
+	    && test_prop(path,
+			     if_exec.isset, if_exec.value, XATTR_NAME_SMACKEXEC)
+	    && test_prop(path,
+			     if_mmap.isset, if_mmap.value, XATTR_NAME_SMACKMMAP)
+	    && test_prop(path,
+			     transmute_flag, "TRUE", XATTR_NAME_SMACKTRANSMUTE);
+}
 
 /* modify attributes of a file */
 static void modify_prop(const char *path, struct labelset *ls, const char *attr)
@@ -182,6 +251,9 @@ static void modify_transmute(const char *path)
 /* modify the file (or directory) of path */
 static void modify_file(const char *path)
 {
+	if (!test_if_selected(path))
+		return;
+
 	modify_prop(path, &access_set, XATTR_NAME_SMACK);
 	modify_prop(path, &exec_set, XATTR_NAME_SMACKEXEC);
 	modify_prop(path, &mmap_set, XATTR_NAME_SMACKMMAP);
@@ -195,8 +267,16 @@ static void print_file(const char *path)
 	char *label;
 	int has_some_smack = 0;
 
+	if (!test_if_selected(path))
+		return;
+
 	/* Print file path. */
 	printf("%s", path);
+
+	if (name_only_flag) {
+		printf("\n");
+		return;
+	}
 
 	errno = 0;
 	rc = smack_new_label_from_path(path, XATTR_NAME_SMACK, follow_flag,
@@ -353,6 +433,31 @@ static void set_label(struct labelset *label, const char *value, int car)
 	label->value = value;
 }
 
+/* set the label to condition value */
+static void set_if_label(struct labelset *label, const char *value, int car)
+{
+	enum state flag;
+
+	if (value[0] != '/')
+		flag = positive;
+	else {
+		flag = negative;
+		value++;
+	}
+	if (strnlen(value, SMACK_LABEL_LEN + 1) == SMACK_LABEL_LEN + 1) {
+		fprintf(stderr, "error option %s: \"%s\" exceeds %d characters.\n",
+			describe_option(car), value, SMACK_LABEL_LEN);
+		exit(1);
+	} else if (smack_label_length(value) < 0) {
+		fprintf(stderr, "error option %s: invalid Smack label '%s'.\n",
+			describe_option(car), value);
+		exit(1);
+	}
+
+	set_state(&label->isset, flag, car, 1);
+	label->value = value;
+}
+
 /* main */
 int main(int argc, char *argv[])
 {
@@ -410,6 +515,33 @@ int main(int argc, char *argv[])
 			break;
 		case OC_RECURSIVE:
 			set_state(&recursive_flag, positive, c, 0);
+			break;
+		case OC_NAME_ONLY:
+			set_state(&name_only_flag, positive, c, 0);
+			break;
+		case OC_IF_ACCESS:
+			set_if_label(&if_access, optarg, c);
+			break;
+		case OC_IF_EXEC:
+			set_if_label(&if_exec, optarg, c);
+			break;
+		case OC_IF_MMAP:
+			set_if_label(&if_mmap, optarg, c);
+			break;
+		case OC_IF_TRANSMUTE:
+			set_state(&if_transmute, positive, c, 0);
+			break;
+		case OC_IF_NO_ACCESS:
+			set_state(&if_access.isset, negative, c, 0);
+			break;
+		case OC_IF_NO_EXEC:
+			set_state(&if_exec.isset, negative, c, 0);
+			break;
+		case OC_IF_NO_MMAP:
+			set_state(&if_mmap.isset, negative, c, 0);
+			break;
+		case OC_IF_NO_TRANSMUTE:
+			set_state(&if_transmute, negative, c, 0);
 			break;
 		case OC_VERSION:
 			printf("%s (libsmack) version " PACKAGE_VERSION "\n",
