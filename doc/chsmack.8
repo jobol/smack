@@ -22,32 +22,26 @@
 
 chsmack \- Change or list the Smack properties of filesystem objects
 
-.SH SYNOPSIS 
+.SH SYNOPSIS
 
-.B chsmack [-L] [-r] [--] files...
+.B chsmack [-L] [-r] [-n] [filters...] [--] files...
 
-.B chsmack [-L] [-r] props... [--] files...
-
-chsmack -d [-L] [-r] [props]... [--] files...
+.B chsmack [-L] [-r] [filters...] settings... [--] files...
 
 .SH DESCRIPTION
 
 \fBchsmack\fR can be used to query or change the Smack context of a file.
 
-First form is used to query the Smack properties of the files.
+First form is used to query Smack properties of files.
 
-Second form is used to set and reset some Smack properties to the files.
-
-Third form is used to remove all or some of the Smack properties of the
-listed files.
-\fBThis third form is now obsolete, use second form instead.\fR
+Second form is used to set and reset some Smack properties to files.
 
 Depending on the state and type of the file the different labels,
 which are stored as extended attributes, have a different effect.
-The \fIaccess\fR property is always significant. 
-It is used to control how process access the file.  
+The \fIaccess\fR property is always significant.
+It is used to control how process access the file.
 The \fImmap\fR property is significant on filesystem object that can be mapped.
-It is used to control how process mmap the file.  
+It is used to control how process mmap the file.
 The \fIexec\fR property apply on executable files (binary or scripts).
 It take effect when the process is launched and the property
 will be assigned as the context of the running process.
@@ -58,7 +52,7 @@ the label of the directory on which the transmute bit is set.
 This process needs to be launched with \fBCAP_MAC_ADMIN\fR capabilities
 in order to change any of the contexts.
 
-.SH OPTIONS
+.SH GENERAL OPTIONS
 
 .TP
 .B -L, --dereference
@@ -67,17 +61,31 @@ Use this option to process the target of the symbolic links instead of the
 symbolic links themselves.
 
 .TP
+.B -r, --recursive
+
+Use this option to list or modify files in subdirectories.
+It follows symbolic links only if in the command line.
+
+.TP
+.B -n, --name-only
+
+When querying files, only print the name. It can be usefull when filtering
+to get a list of files matching a criteria.
+
+.SH SETTING OPTIONS
+
+.TP
 .B -a, --access \fRlabel
 
 When setting, the label must be set and its value must be a valid
 Smack label.
 
 This context is used to confine the access modes, which are defined by the
-set \fBrwaxtl\fR, which refer to read, write, append, execute, transmute 
+set \fBrwaxtl\fR, which refer to read, write, append, execute, transmute
 and lock.
 The exec here is not to be confused with the \fB\-e\fR option listed below.
 This access mode "exec" specifies restrictions on who is allowed
-to launch this process. 
+to launch this process.
 A common rule for this might look like \fB(launcher application rx)\fR
 where the \fB\-\-access\fR label is set to \fBapplication\fR.
 This would ensure that the process with context \fBlauncher\fR would be able
@@ -157,25 +165,89 @@ For example chsmack -a Foo -D would drop all attributes except security.SMACK64.
 If no property is specified, it means that all the properties will
 be removed.
 
+.SH FILTERING OPTIONS
+
+Filtering options allow to select the files that will be either printed
+or modified. Filtering is possible on any Smack attribute. For each
+attribute, it is possible to check:
+
+- if there is no value (\fB--if-no-...\fR family)
+
+- if the value is exactly the given text
+
+- if there is no value or the value doesn't match the given text
+
+The former case is when the given text starts with a slash (\fB/\fR),
+see examples for details.
+
+When more than one filtering option is given, a logical and is applied,
+meaning that the file is selected only if all filtering options match.
+
 .TP
-.B -r, --recursive
+.B --if-access VALUE
 
-Use this option to list or modify files in subdirectories.
-It follows symbolic links only if in the command line.
+If \fBVALUE\fR doesn't start with a slash (\fB/\fR), the file matches
+if its extended attribute \fBsecurity.SMACK64\fR equals \fBVALUE\fR.
 
-.SH OBSOLETE OPTIONS
+If \fBVALUE\fR starts with a slash (\fB/\fR), being like \fB/TEXT\fR,
+the file matches either if it doesn't have the extended attribute
+\fBsecurity.SMACK64\fR or if its value isn't equal to \fBTEXT\fR.
+
+Note that on Smack system, the extended attribute \fBsecurity.SMACK64\fR
+is always defined.
 
 .TP
-.B -d, --remove
+.B --if-no-access
 
-\fBThis option is obsolete, use -D, -A, -M -E, -T instead.\fR
+The file matches if doesn't have the extended attribute
+\fBsecurity.SMACK64\fR.
 
-Use this option to remove the smack properties of the files.
-You specify the properties to remove using options \fB-a\fR, \fB-e\fR,
-\fB-m\fR or \fB-t\fR (or their long version) without putting their label
-value.
-If no property is specified, it means that all the properties will
-be removed.
+Note that on Smack system, the extended attribute \fBsecurity.SMACK64\fR
+is always defined.
+
+.TP
+.B --if-exec VALUE
+
+If \fBVALUE\fR doesn't start with a slash (\fB/\fR), the file matches
+if its extended attribute \fBsecurity.SMACK64EXEC\fR equals \fBVALUE\fR.
+
+If \fBVALUE\fR starts with a slash (\fB/\fR), being like \fB/TEXT\fR,
+the file matches either if it doesn't have the extended attribute
+\fBsecurity.SMACK64EXEC\fR or if its value isn't equal to \fBTEXT\fR.
+
+.TP
+.B --if-no-exec
+
+The file matches if doesn't have the extended attribute
+\fBsecurity.SMACK64EXEC\fR.
+
+.TP
+.B --if-mmap VALUE
+
+If \fBVALUE\fR doesn't start with a slash (\fB/\fR), the file matches
+if its extended attribute \fBsecurity.SMACK64MMAP\fR equals \fBVALUE\fR.
+
+If \fBVALUE\fR starts with a slash (\fB/\fR), being like \fB/TEXT\fR,
+the file matches either if it doesn't have the extended attribute
+\fBsecurity.SMACK64MMAP\fR or if its value isn't equal to \fBTEXT\fR.
+
+.TP
+.B --if-no-mmap
+
+The file matches if doesn't have the extended attribute
+\fBsecurity.SMACK64MMAP\fR.
+
+.TP
+.B --if-transmute
+
+The file matches if has the extended attribute
+\fBsecurity.SMACK64TRANSMUTE\fR equals to \fBTRUE\fR.
+
+.TP
+.B --if-no-transmute
+
+The file matches if doesn't have the extended attribute
+\fBsecurity.SMACK64TRANSMUTE\fR.
 
 .SH RETURN VALUE
 
@@ -226,6 +298,21 @@ chsmack -E -a Nobody file3
 
 This command set the Smack \fIaccess\fR property to \fINobody\fR and
 drops the \fIexec\fR property for the file \fIfile3\fR.
+
+.EX
+chsmack --if-exec spurious -E -a Nobody -r /
+.EE
+
+This command set the Smack \fIaccess\fR property to \fINobody\fR and
+drops the \fIexec\fR property of any file that have the \fIexec\fR
+label \fIspurious\fR.
+
+.EX
+chsmack --if-access /user0 -n -r /home/user0
+.EE
+
+This command lists all files of \fI/home/user0\fR that doesn't have
+\fIaccess\fR property equal to \fIuser0\fR.
 
 .SH "SEE ALSO"
 
