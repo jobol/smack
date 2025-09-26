@@ -324,7 +324,7 @@ static void explore(const char *path, void (*fun)(const char*), int follow)
 	struct dirent *dent;
 
 	/* type of the path */
-	rc = (follow ? stat : lstat)(path ? path : ".", &st);
+	rc = (follow ? stat : lstat)(path, &st);
 	if (rc < 0) {
 		perror(path);
 		return;
@@ -335,14 +335,14 @@ static void explore(const char *path, void (*fun)(const char*), int follow)
 		return;
 
 	/* open the directory */
-	dir = opendir(path ? path : ".");
+	dir = opendir(path);
 	if (dir == NULL) {
 		perror(path);
 		return;
 	}
 
 	/* iterate ove the directory's entries */
-	dir_name_len = path ? strlen(path) : 1;
+	dir_name_len = strlen(path);
 
 	/* dir_name_len + sizeof('/') + sizeof(dirent.d_name) + sizeof('\0') */
 	buf_size = dir_name_len + 1 + 256 + 1;
@@ -352,15 +352,10 @@ static void explore(const char *path, void (*fun)(const char*), int follow)
 		exit(1);
 	}
 
-	if (path) {
-		memcpy(buf, path, dir_name_len);
-		while (dir_name_len && buf[dir_name_len - 1] == '/')
-			dir_name_len--;
-		buf[dir_name_len] = '/';
-	} else {
-		buf[0] = '.';
-		buf[1] = '/';
-	}
+	memcpy(buf, path, dir_name_len);
+	while (dir_name_len && buf[dir_name_len - 1] == '/')
+		dir_name_len--;
+	buf[dir_name_len] = '/';
 
 	for (;;) {
 		errno = 0;
@@ -369,7 +364,7 @@ static void explore(const char *path, void (*fun)(const char*), int follow)
 			if (errno)
 				fprintf(stderr,
 					"error: while scaning directory '%s'.\n",
-					path ? path : ".");
+					path);
 			free(buf);
 			closedir(dir);
 			return;
@@ -577,7 +572,7 @@ int main(int argc, char *argv[])
 			fprintf(stderr, "error: no files.\n");
 			exit(1);
 		}
-		explore(NULL, fun, 0);
+		explore(".", fun, 0);
 	} else {
 		for (i = optind; i < argc; i++) {
 			fun(argv[i]);
