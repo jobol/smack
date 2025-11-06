@@ -324,10 +324,16 @@ static void explore(const char *path, void (*fun)(const char*), int follow)
 	struct dirent *dent;
 
 	/* type of the path */
-	rc = (follow ? stat : lstat)(path, &st);
+	rc = lstat(path, &st);
 	if (rc < 0) {
 		perror(path);
 		return;
+	}
+	/* resolve link but silently skip if dangling */
+	if (S_ISLNK(st.st_mode)) {
+		rc = stat(path, &st);
+		if (rc < 0)
+			return;
 	}
 
 	/* no a directory, skip */
