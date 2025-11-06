@@ -46,13 +46,13 @@ pam_sm_open_session (pam_handle_t *pamh,
          &&  argv[idx][lenu + 1] != '\0') {
           /* set label if arg is "user=label" */
           label = &argv[idx][lenu + 1];
-	 }
+        }
       }
     }
     /* compute the default label if none is set for user */
     if (label == NULL) {
       for (idx = 0 ; idx < argc && label == NULL ; idx++)
-	if (argv[idx][0] == '=')
+        if (argv[idx][0] == '=')
           label = &argv[idx][1];
       if (label == NULL)
         label = DEFAULT_LABEL;
